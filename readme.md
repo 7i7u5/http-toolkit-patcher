@@ -8,7 +8,7 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 
 ---
 
-![Screenshot of the application](/example.png)
+<img src="example.png" width="400">
 
 ## Installation
 
