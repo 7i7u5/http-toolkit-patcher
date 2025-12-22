@@ -14,7 +14,7 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 
 Download the latest release from the [releases](../../releases) tab.
 
-> [!IMPORTANT]
+> [!INFO]
 > I havent included mac os linux binaries in the releases as I have no easy way to build and/or test them. However it should be pretty straightforward to build yourself from source. If any issues occur on different platforms feel free to create an issue and I will try to help.
 
 ## Usage
@@ -28,7 +28,7 @@ Download the latest release from the [releases](../../releases) tab.
    - **Linux (Snap):** `/snap/httptoolkit/current/resources/app.asar`
 
 3. **Patch:** Click the **Patch** button. You may be prompted for admin permissions; the tool needs these to close any active HTTP Toolkit processes and modify the file.
-4. **Wait:** The process takes about 30 seconds.
+4. **Wait:** The process will only take a few seconds.
 
 ### Verification
 
