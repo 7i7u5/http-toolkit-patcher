@@ -7,6 +7,7 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 > This project was created to explore patching, and reverse engineering concepts. It is not intended for piracy or commercial use. If you find HTTP Toolkit useful, please support the original developers by purchasing a legitimate Pro license.
 
 ---
+![alt text](/example.png)
 
 ## Installation
 
