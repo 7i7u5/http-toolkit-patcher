@@ -14,12 +14,6 @@ Download the latest release from the [releases](../../releases) tab.
 
 ## Usage
 
-Here you go, big dog. This is the raw Markdown code. You can copy the entire block below and paste it straight into your README.md.
-
-Markdown
-
-## Usage
-
 1. **Run the app:** Download and run the release file for your operating system (.dmg for macOS, .exe for Windows, or the binary for Linux).
 2. **Locate app.asar:** The tool should automatically detect the **HTTP Toolkit** `app.asar` file. If it doesn't, click **Select Path** and navigate to the correct location manually:
    - **Windows (User):** `%LocalAppData%\Programs\httptoolkit\resources\app.asar`
