@@ -15,7 +15,7 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 Download the latest release from the [releases](../../releases) tab.
 
 > [!INFO]
-> I havent included mac os linux binaries in the releases as I have no easy way to build and/or test them. However it should be pretty straightforward to build yourself from source. If any issues occur on different platforms feel free to create an issue and I will try to help.
+> I havent included mac os linux binaries in the releases as I have no easy way to build and/or test them. However it should be pretty straightforward to build yourself from source. If any issues occur, feel free to create an issue and I will try to help.
 
 ## Usage
 
@@ -59,6 +59,10 @@ git clone https://github.com/7i7u5/http-toolkit-patch
 cd http-toolkit-patch
 cargo build --release
 ```
+
+## How it works
+
+The patch modifies the app.asar file to enable the Chrome DevTools Protocol, which intercepts and alters the main.js script before it loads. This allows us to patch the user object and grant ourselves a premium plan. Because of the nature of this patch, it may need to be reapplied after updates.
 
 ## Disclaimer
 

@@ -144,18 +144,14 @@ fn patch_asar_file<P: AsRef<Path>>(asar_path: P, ui: &slint::Weak<AppWindow>) ->
 		if let Some(file) = asar.files().get(path) {
 			let mut bytes = file.data().to_vec();
 			for patch in patch_list {
-				bytes = replace_bytes(&bytes, &patch.original, &patch.replacement);
-				let hex = bytes
-					.iter()
-					.map(|b| format!("{:02x}", b))
-					.collect::<Vec<_>>()
-					.join(" ");
-
-				fs::write(
-					r"C:\Users\titus\Repos\Github\http-toolkit-patch\bytes.txt",
-					hex,
-				).expect("Failed to write hex bytes");
-				append_log(ui, &format!("Applying patch for: {}", path_string));
+				let patched_bytes = replace_bytes(&bytes, &patch.original, &patch.replacement);
+				if patched_bytes != bytes {
+					bytes = patched_bytes;
+					append_log(ui, &format!("Applying patch for: {}", path_string));
+				} else {
+					append_log(ui, &format!("Could not apply patch for: {}", path_string));
+					return Err("Failed to apply patches (This may mean it has already been patched)".into());
+				}
 			};
 			patched_asar.write_file(path, bytes, false).map_err(|_| format!("Failed to write the patched file: {}", path_string))?;
 		}
