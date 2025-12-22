@@ -12,6 +12,9 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 
 Download the latest release from the [releases](../../releases) tab.
 
+> [!INFO]
+> I havent included mac os linux binaries in the releases as I have no easy way to build and/or test them. However it should be pretty straightforward to build yourself from source. If any issues occur on different platforms feel free to create an issue and I will try to help.
+
 ## Usage
 
 1. **Run the app:** Download and run the release file for your operating system (.dmg for macOS, .exe for Windows, or the binary for Linux).
