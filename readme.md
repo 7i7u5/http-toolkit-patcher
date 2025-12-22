@@ -8,6 +8,8 @@ A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 
 ---
 
+![Example of the application][./example.png]
+
 ## Installation
 
 Download the latest release from the [releases](../../releases) tab.
