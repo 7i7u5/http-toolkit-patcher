@@ -2,6 +2,8 @@
 
 A tool designed to patch **HTTP Toolkit** to unlock Pro features.
 
+> This tool is more stable and performant than other alternatives as it doesn't require a mitm proxy server to continuously be running to patch. Instead the patch is built directly into http toolkit. This however has it's downsides as it means that if http toolkit updates, the patch may be overwritten and need to be reapplied.
+
 > [!WARNING]
 > **FOR EDUCATIONAL PURPOSES ONLY.**
 > This project was created to explore patching, and reverse engineering concepts. It is not intended for piracy or commercial use. If you find HTTP Toolkit useful, please support the original developers by purchasing a legitimate Pro license.
