@@ -1,7 +1,6 @@
 // Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 //TODO: auto detect version and see if we can patch...
-use std::time;
 use std::{error::Error, fs};
 use std::collections::HashMap;
 use std::sync::{OnceLock};
@@ -10,7 +9,6 @@ use native_dialog::{ DialogBuilder, MessageLevel };
 use asar::{ AsarReader, AsarWriter };
 use walkdir::WalkDir;
 use sha2::{Sha256, Digest};
-use std::thread;
 use std::io::Write;
 #[cfg(windows)]
 use std::os::windows::process::CommandExt;
@@ -28,49 +26,6 @@ struct PatchPaths {
 	base_paths: Vec<String>,
 	binary_path: &'static str,
 	asar_path: &'static str
-}
-
-struct ElevatedShell {
-	stdin: ChildStdin,
-	_child: Child,
-}
-
-impl ElevatedShell {
-	fn new() -> Result<Self, String> {
-		let mut child = {
-			#[cfg(windows)] {
-				Command::new("powershell.exe")
-					.creation_flags(0x08000000) // CREATE_NO_WINDOW
-					.args(&["-NoExit", "-Command", "-"])
-					.stdin(Stdio::piped())
-					.stdout(Stdio::inherit())
-					.spawn()
-					.map_err(|e| e.to_string())?
-			}
-
-			#[cfg(unix)] {
-				Command::new("sudo")
-					.arg("-s")
-					.stdin(Stdio::piped())
-					.stdout(Stdio::inherit())
-					.stderr(Stdio::inherit())
-					.spawn()
-					.map_err(|e| e.to_string())?
-			}
-		};
-		let stdin = child.stdin.take().ok_or("Failed to open stdin")?;
-
-		Ok(Self {
-			stdin,
-			_child: child,
-		})
-	}
-
-	fn run_command(&mut self, cmd: &str) -> Result<(), String> {
-		writeln!(self.stdin, "{}", cmd).map_err(|e| e.to_string())?;
-		self.stdin.flush().map_err(|e| e.to_string())?;
-		Ok(())
-	}
 }
 
 static PATCHES: OnceLock<HashMap<String, Vec<Patch>>> = OnceLock::new();
@@ -328,20 +283,11 @@ fn patch_asar_file<P: AsRef<Path>>(asar_path: P, ui: &slint::Weak<AppWindow>) ->
 	}
 	append_log(ui, "Files recreated!");
 
-	append_log(ui, "Killing HTTP Toolkit, this may take a few seconds...");
-	let mut elevated = ElevatedShell::new()?;
-	let result = kill_httptoolkit(&mut elevated);
-	if result.is_err() {
-		append_log(ui, &format!("Failed to kill HTTP Toolkit process: {}", result.err().unwrap()));
-	}
-	thread::sleep(time::Duration::from_secs(3)); // Wait 3 seconds to allow http toolkit to clean up.
 
-	let result = backup_asar(&mut elevated);
-	if result.is_err() {
-		append_log(ui, &format!("Failed to backup app.asar: {}", result.err().unwrap()));
-	}
-	append_log(ui, "Backup created!");
-	thread::sleep(time::Duration::from_secs(3)); // Wait 3 seconds to allow rename.
+	let mut backup_path = asar_path.as_ref().to_path_buf();
+	backup_path.set_file_name("app.asar.backup");
+	append_log(ui, &format!("Backing up app.asar to {}", backup_path.display()));
+	fs::rename(asar_path.as_ref(), backup_path).map_err(|e| format!("Failed to backup app.asar ({})", e.to_string()))?;
 
 	append_log(ui, "Writing patched ASAR");
 	let patched_writer = fs::File::create(asar_path.as_ref()).map_err(|e| format!("Failed to create patched ASAR file ({})", e.to_string()))?;
