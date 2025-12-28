@@ -98,7 +98,7 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 		// 	format!("C:/Users/{}/AppData/Local/Programs/HTTP Toolkit/", whoami::username())
 		// ]);
 
-		m.insert("unix".to_string(), PatchPaths {
+		m.insert("linux".to_string(), PatchPaths {
 			base_paths: vec![
 				"/opt/HTTP Toolkit".to_string(),
 			],
@@ -361,7 +361,7 @@ fn get_os_name() -> &'static str {
 	} else if cfg!(target_os = "macos") {
 		"macos"
 	} else if cfg!(unix) {
-		"unix"
+		"linux"
 	} else {
 		"unknown"
 	}
