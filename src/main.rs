@@ -191,7 +191,7 @@ fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
 			}
 
 			#[cfg(unix)] {
-				return run_admin_command("sh", &["-c", &format!("pkill \"{0}\"; sleep 3; pkill -9 \"{0}\"", patch_paths.binary_path)]);
+				return elevated.run_command(&format!("taskkill /im \"{0}\"; Start-Sleep -s 3; taskkill /f /im \"{0}\"", patch_paths.binary_path));
 			}
 		}
 
