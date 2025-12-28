@@ -1,6 +1,6 @@
 [package]
 name = "http-toolkit-patcher"
-version = "1.0.0"
+version = "1.24.2"
 edition = "2024"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -10,7 +10,9 @@ slint = { version = "1.14.1", features = ["backend-qt"] }
 rfd = "0.14"
 native-dialog = "0.9.4"
 whoami = "1.6.1"
-asar = "0.3.0"
+asar = { version = "0.3.0", features = ["integrity"] }
+walkdir = "2"
+sha2 = "0.10.9"
 
 [build-dependencies]
 slint-build = "1.14.1"
