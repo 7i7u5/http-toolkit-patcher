@@ -174,11 +174,6 @@ fn get_os_patch_paths() -> Option<PatchPaths> {
 }
 
 fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
-	let option = get_os_patch_paths();
-	let Some(patch_paths) = option else {
-		return Err("Failed to get OS patch paths".to_string());
-	};
-
 	let option = get_base_path();
 	let Some(base_path) = option else {
 		return Err("Failed to get base path".to_string());
@@ -200,11 +195,6 @@ fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
 }
 
 fn backup_asar(elevated: & mut ElevatedShell) -> Result<(), String> {
-	let option = get_os_patch_paths();
-	let Some(patch_paths) = option else {
-		return Err("Failed to get OS patch paths".to_string());
-	};
-
 	let option = get_base_path();
 	let Some(base_path) = option else {
 		return Err("Failed to get base path".to_string());
