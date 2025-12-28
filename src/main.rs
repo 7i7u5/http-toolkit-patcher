@@ -98,7 +98,7 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 		// 	format!("C:/Users/{}/AppData/Local/Programs/HTTP Toolkit/", whoami::username())
 		// ]);
 
-		m.insert("linux".to_string(), PatchPaths {
+		m.insert("unix".to_string(), PatchPaths {
 			base_paths: vec![
 				"/opt/HTTP Toolkit".to_string(),
 			],
