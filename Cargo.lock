@@ -2256,6 +2256,7 @@ name = "http-toolkit-patcher"
 version = "1.24.2"
 dependencies = [
  "asar",
+ "libc",
  "native-dialog",
  "rfd",
  "sha2",

@@ -13,6 +13,7 @@ whoami = "1.6.1"
 asar = { version = "0.3.0", features = ["integrity"] }
 walkdir = "2"
 sha2 = "0.10.9"
+libc = "0.2.178"
 
 [build-dependencies]
 slint-build = "1.14.1"
