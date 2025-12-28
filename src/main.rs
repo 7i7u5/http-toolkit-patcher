@@ -9,10 +9,6 @@ use native_dialog::{ DialogBuilder, MessageLevel };
 use asar::{ AsarReader, AsarWriter };
 use walkdir::WalkDir;
 use sha2::{Sha256, Digest};
-use std::io::Write;
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
-use std::process::{Command, Child, Stdio, ChildStdin};
 
 slint::include_modules!();
 
@@ -33,11 +29,15 @@ static PATCH_PATHS: OnceLock<HashMap<String, PatchPaths>> = OnceLock::new();
 
 
 #[cfg(windows)]
-#[link(name = "shell32")]
-unsafe extern "system" {
-	fn IsUserAnAdmin() -> bool;
+pub fn is_admin() -> bool {
+	unsafe { IsUserAnAdmin() }
 }
 
+#[cfg(unix)]
+pub fn is_admin() -> bool {
+	use libc::{geteuid, getuid};
+	unsafe { getuid() == 0 || geteuid() == 0 }
+}
 fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 	PATCH_PATHS.get_or_init(|| {
 		let mut m = HashMap::new();
@@ -53,7 +53,7 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 		// 	format!("C:/Users/{}/AppData/Local/Programs/HTTP Toolkit/", whoami::username())
 		// ]);
 
-		m.insert("linux".to_string(), PatchPaths {
+		m.insert("unix".to_string(), PatchPaths {
 			base_paths: vec![
 				"/opt/HTTP Toolkit".to_string(),
 			],
@@ -133,7 +133,6 @@ fn get_os_patch_paths() -> Option<PatchPaths> {
 	let paths = patch_paths.get(get_os_name())?;
 	return Some(paths.clone());
 }
-
 
 fn get_asar_integrity_hash(path: &Path) -> Result<String, String> {
 	let bytes = fs::read(path).map_err(|e| format!("Failed to read ASAR file ({})", e.to_string()))?;
@@ -255,7 +254,7 @@ fn get_os_name() -> &'static str {
 	} else if cfg!(target_os = "macos") {
 		"macos"
 	} else if cfg!(unix) {
-		"linux"
+		"unix"
 	} else {
 		"unknown"
 	}
@@ -271,13 +270,12 @@ fn alert(message: &str, title: &str) {
 }
 
 fn get_base_path() -> Option<PathBuf> {
-	let patch_paths = init_patch_paths();
-	let paths = patch_paths.get(get_os_name())?;
-	for base_path in &paths.base_paths {
+	let patch_paths = get_os_patch_paths()?;
+	for base_path in &patch_paths.base_paths {
 		let path = Path::new(&base_path);
 		if path.exists() {
-			let binary_path = path.join(paths.binary_path);
-			let asar_path = path.join(paths.asar_path);
+			let binary_path = path.join(patch_paths.binary_path);
+			let asar_path = path.join(patch_paths.asar_path);
 			if binary_path.exists() && asar_path.exists() {
 				return Some(path.to_path_buf());
 			}
@@ -287,10 +285,10 @@ fn get_base_path() -> Option<PathBuf> {
 }
 
 fn get_asar_path() -> Option<PathBuf> {
-	let patch_paths = init_patch_paths();
-	let paths = patch_paths.get(get_os_name())?;
+	let patch_paths = get_os_patch_paths()?;
+
 	let mut asar_path = get_base_path()?;
-	asar_path.push(paths.asar_path);
+	asar_path.push(patch_paths.asar_path);
 	let path = Path::new(&asar_path);
 	if path.exists() {
 		return Some(path.to_path_buf());
@@ -304,13 +302,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 	let ui = AppWindow::new()?;
 	let ui_weak = ui.as_weak();
 
-	#[cfg(windows)] { // If windows then it requires admin when starting
-		if unsafe { !IsUserAnAdmin() } {
+		if !is_admin() {
 			append_log(&ui_weak, "This program requires admin privileges to run.");
 			ui.set_pach_button_enabled(false);
 			ui.set_select_button_enabled(false);
 		}
-	}
+
 	let path = get_asar_path();
 	if let Some(value) = path {
 		ui.set_asar_path(value.to_string_lossy().as_ref().into());
