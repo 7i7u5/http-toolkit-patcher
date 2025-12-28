@@ -98,6 +98,12 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 		// 	format!("C:/Users/{}/AppData/Local/Programs/HTTP Toolkit/", whoami::username())
 		// ]);
 
+		m.insert("linux".to_string(), PatchPaths {
+			base_paths: vec![
+				"/opt/HTTP Toolkit".to_string(),
+			],
+			binary_path: "httptoolkit", asar_path: "resources/app.asar"
+		});
 		// m.insert("linux".to_string(), vec![
 		// 	"/opt/HTTP Toolkit/".to_string(), //TODO: test more linux distros
 		// ]);
@@ -174,6 +180,11 @@ fn get_os_patch_paths() -> Option<PatchPaths> {
 }
 
 fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
+	let option = get_os_patch_paths();
+	let Some(patch_paths) = option else {
+		return Err("Failed to get OS patch paths".to_string());
+	};
+
 	let option = get_base_path();
 	let Some(base_path) = option else {
 		return Err("Failed to get base path".to_string());
@@ -195,6 +206,11 @@ fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
 }
 
 fn backup_asar(elevated: & mut ElevatedShell) -> Result<(), String> {
+	let option = get_os_patch_paths();
+	let Some(patch_paths) = option else {
+		return Err("Failed to get OS patch paths".to_string());
+	};
+
 	let option = get_base_path();
 	let Some(base_path) = option else {
 		return Err("Failed to get base path".to_string());
