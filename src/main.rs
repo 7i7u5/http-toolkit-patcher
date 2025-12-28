@@ -1,45 +1,51 @@
-// Prevent console window in addition to Slint window in Windows release builds when, e.g., starting the app via file manager. Ignored on other platforms.
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-
-use rfd;
-use std::{error::Error, fs};
+//TODO: auto detect version and see if we can patch...
 use std::collections::HashMap;
 use std::sync::{OnceLock};
-use std::path::{ Path };
-use native_dialog::{ DialogBuilder, MessageLevel };
+use std::path::{ Path, PathBuf };
+use std::env;
+use std::fs;
 use asar::{ AsarReader, AsarWriter };
-use std::process::{Command};
-
-slint::include_modules!();
+use walkdir::WalkDir;
+use sha2::{Sha256, Digest};
 
 struct Patch {
 	original: Vec<u8>,
 	replacement: Vec<u8>,
 }
 
-const PATCHER_VERSION: &str = "1.24.1";
-static ASAR_PATHS: OnceLock<HashMap<String, Vec<String>>> = OnceLock::new();
+#[derive(Clone)]
+struct PatchPaths {
+	base_paths: Vec<String>,
+	binary_path: &'static str,
+	asar_path: &'static str
+}
+
 static PATCHES: OnceLock<HashMap<String, Vec<Patch>>> = OnceLock::new();
+static PATCH_PATHS: OnceLock<HashMap<String, PatchPaths>> = OnceLock::new();
 
-fn init_asar_paths() -> &'static HashMap<String, Vec<String>> {
-	ASAR_PATHS.get_or_init(|| {
+fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
+	PATCH_PATHS.get_or_init(|| {
 		let mut m = HashMap::new();
-		m.insert("windows".to_string(), vec![
-			"C:\\Program Files\\httptoolkit\\resources\\app.asar".to_string(),
-			format!("C:\\Users\\{}\\AppData\\Local\\Programs\\HTTP Toolkit\\resources\\app.asar", whoami::username())
-		]);
+		m.insert("windows".to_string(), PatchPaths {
+			base_paths: vec![
+				"C:/Program Files/HTTP Toolkit".to_string(),
+				format!("C:/Users/{}/AppData/Local/Programs/HTTP Toolkit", whoami::username())
+			],
+			binary_path: "HTTP Toolkit.exe",
+			asar_path: "resources/app.asar"
+		});
 
-		m.insert("linux".to_string(), vec![
-			"/Applications/HTTP Toolkit.app/Contents/Resources/app.asar".to_string(),
-			format!("/Users/{}/Applications/HTTP Toolkit.app/Contents/Resources/app.asar", whoami::username())
-		]);
+		// m.insert("unix".to_string(), PatchPaths {
+		// 	base_paths: vec![
+		// 		"/opt/HTTP Toolkit".to_string(),
+		// 	],
+		// 	binary_path: "httptoolkit",
+		// 	asar_path: "resources/app.asar"
+		// });
 
-		m.insert("macos".to_string(), vec![
-			"/usr/share/httptoolkit/resources/app.asar".to_string(),
-			"/opt/httptoolkit/resources/app.asar".to_string(),
-			format!("/home/{}/.local/share/httptoolkit/resources/app.asar", whoami::username()),
-			format!("/home/{}/Applications/HTTP Toolkit.app/Contents/Resources/app.asar", whoami::username())
-		]);
+		// m.insert("macos".to_string(), vec![
+		//TODO: patch for non windows
+		// ]);
 
 		return m;
 	})
@@ -48,7 +54,7 @@ fn init_asar_paths() -> &'static HashMap<String, Vec<String>> {
 fn init_patches() -> &'static HashMap<String, Vec<Patch>> {
 	PATCHES.get_or_init(|| {
 		let mut m = HashMap::new();
-		m.insert("build\\index.js".to_string(), vec![
+		m.insert("build/index.js".to_string(), vec![
 			Patch {
 				original: vec![
 					0x20, 0x20, 0x20, 0x20, 0x7d, 0x29, 0x3b, 0x0a, 0x20, 0x20, 0x20, 0x20, 0x69, 0x66, 0x20, 0x28, 0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x41, 0x75, 0x74, 0x6f, 0x48, 0x69, 0x64, 0x65, 0x4d, 0x65, 0x6e, 0x75, 0x28, 0x29, 0x29, 0x20, 0x7b				],
@@ -62,114 +68,6 @@ fn init_patches() -> &'static HashMap<String, Vec<Patch>> {
 	})
 }
 
-fn replace_bytes(data: &[u8], target: &[u8], replacement: &[u8]) -> Vec<u8> {
-	let mut result = Vec::new();
-	let mut i = 0;
-
-	while i < data.len() {
-		if i + target.len() <= data.len() && &data[i..i + target.len()] == target {
-			result.extend_from_slice(replacement);
-			i += target.len();
-		} else {
-			result.push(data[i]);
-			i += 1;
-		}
-	}
-	result
-}
-
-fn clear_log(ui_weak: &slint::Weak<AppWindow>) {
-	let handle_weak = ui_weak.clone();
-
-	slint::invoke_from_event_loop(move || {
-		if let Some(ui) = handle_weak.upgrade() {
-			ui.set_log("".into());
-		}
-	}).unwrap();
-}
-
-fn append_log(ui_weak: &slint::Weak<AppWindow>, text: &str) {
-	let text = text.to_string();
-	let handle_weak = ui_weak.clone();
-
-	slint::invoke_from_event_loop(move || {
-		if let Some(ui) = handle_weak.upgrade() {
-			let log = ui.get_log();
-			let updated = format!("{}\n{}", log, text);
-			ui.set_log(updated.into());
-		}
-	}).unwrap();
-}
-
-fn kill_httptoolkit() {
-	if cfg!(windows) {
-		let _ = Command::new("powershell")
-			.args([
-				"-Command",
-				"Start-Process taskkill -ArgumentList '/F /IM \"http toolkit.exe\"' -Verb RunAs"
-			])
-			.status();
-	} else if cfg!(target_os = "macos") || cfg!(unix) {
-		let _ = Command::new("sudo")
-			.arg("pkill")
-			.arg("httptoolkit")
-			.status();
-	}
-}
-
-fn patch_asar_file<P: AsRef<Path>>(asar_path: P, ui: &slint::Weak<AppWindow>) -> Result<(), String> {
-	clear_log(ui);
-	append_log(ui, "Starting patch!");
-	append_log(ui, "Killing HTTP Toolkit process.");
-	kill_httptoolkit();
-	append_log(ui, "Reading asar file.");
-
-	let asar_file = fs::read(asar_path.as_ref()).map_err(|_| "Failed to read ASAR file")?;
-	let asar = AsarReader::new(&asar_file, None).map_err(|_| "Failed to parse ASAR file")?;
-
-	let mut patched_asar = AsarWriter::new();
-	append_log(ui, "Recreating files. Please wait...");
-
-	let patches = init_patches();
-	for (path, file) in asar.files() {
-		let path_string = path.to_string_lossy();
-		if !patches.contains_key(path_string.as_ref()) {
-			patched_asar.write_file(path, file.data(), false).map_err(|_| format!("Failed to recreate file: {}", path_string.as_ref()))?;
-		}
-	}
-	append_log(ui, "Files recreated!");
-
-	for (path_string, patch_list) in patches.iter() {
-		let path = Path::new(path_string);
-		if let Some(file) = asar.files().get(path) {
-			let mut bytes = file.data().to_vec();
-			for patch in patch_list {
-				let patched_bytes = replace_bytes(&bytes, &patch.original, &patch.replacement);
-				if patched_bytes != bytes {
-					bytes = patched_bytes;
-					append_log(ui, &format!("Applying patch for: {}", path_string));
-				} else {
-					append_log(ui, &format!("Could not apply patch for: {}", path_string));
-					return Err("Failed to apply patches (This may mean it has already been patched)".into());
-				}
-			};
-			patched_asar.write_file(path, bytes, false).map_err(|_| format!("Failed to write the patched file: {}", path_string))?;
-		}
-	}
-
-
-	let mut backup_path = asar_path.as_ref().to_path_buf();
-	backup_path.set_file_name("app.asar.backup");
-	fs::rename(&asar_path, &backup_path).map_err(|_| "Failed to backup app.asar")?;
-	append_log(ui, "Writing patched ASAR");
-
-	let patched_writer = fs::File::create(&asar_path).map_err(|_| "Failed to create patched ASAR file")?;
-	patched_asar.finalize(patched_writer).map_err(|_| "Failed to finalize patched ASAR")?;
-
-	Ok(())
-}
-
-
 fn get_os_name() -> &'static str {
 	if cfg!(windows) {
 		"windows"
@@ -182,89 +80,277 @@ fn get_os_name() -> &'static str {
 	}
 }
 
-fn detect_asar_path() -> Option<String> {
-	let map = init_asar_paths();
-	let paths = map.get(get_os_name())?;
-	for path in paths {
-		if Path::new(path).exists() {
-			return Some(path.to_string());
+fn replace_bytes(data: &[u8], target: &[u8], replacement: &[u8]) -> Vec<u8> {
+	let mut result = Vec::new();
+	let mut i = 0;
+	let mut count = 0;
+
+	log(&format!("Starting search for byte sequence (len: {})", target.len()), LogLevel::Info);
+
+	while i < data.len() {
+		if i + target.len() <= data.len() && &data[i..i + target.len()] == target {
+			log(&format!("Match found at offset 0x{:X}", i), LogLevel::Success);
+
+			result.extend_from_slice(replacement);
+			i += target.len();
+			count += 1;
+		} else {
+			result.push(data[i]);
+			i += 1;
+		}
+	}
+
+	if count > 0 {
+		log(&format!("Replacement complete. Total replacements: {}", count), LogLevel::Success);
+	} else {
+		log("No matches found in the file.", LogLevel::Warning);
+	}
+
+	result
+}
+
+fn get_os_paths() -> Option<PatchPaths> {
+	let patch_paths = init_patch_paths();
+	let paths = patch_paths.get(get_os_name())?;
+	return Some(paths.clone());
+}
+
+fn get_asar_integrity_hash(path: &Path) -> Result<String, String> {
+	let bytes = fs::read(path).map_err(|e| format!("Failed to read ASAR file ({})", e.to_string()))?;
+	let header_size_bytes = &bytes[12..16].try_into().map_err(|e: std::array::TryFromSliceError| format!("Failed to convert header size bytes ({})", e.to_string()))?;
+	let header_size = u32::from_le_bytes(*header_size_bytes) as usize;
+	let header_bytes = &bytes[16..16 + header_size];
+	let mut hasher = Sha256::new();
+	hasher.update(header_bytes);
+	let result = hasher.finalize();
+	return Ok(format!("{:x}", result));
+}
+
+fn get_unpacked_files<P: AsRef<Path>>(asar_path: P) -> Vec<String> {
+	if let Some(parent_dir) = asar_path.as_ref().parent() {
+		let unpacked_folder = parent_dir.join("app.asar.unpacked");
+
+		if !unpacked_folder.exists() {
+			return Vec::new();
+		}
+
+		return WalkDir::new(&unpacked_folder)
+			.into_iter()
+			.filter_map(|e| e.ok())
+			.filter(|e| e.file_type().is_file())
+			.filter_map(|e| {
+				// Strip the prefix to get the relative path
+				e.path()
+					.strip_prefix(&unpacked_folder)
+					.ok()
+					.map(|rel| rel.to_string_lossy().into_owned())
+			})
+			.collect()
+	}
+	return Vec::new()
+}
+
+fn recreate_unpacked_files<P: AsRef<Path>>(asar_writer: &mut AsarWriter, asar_path: P) -> Result<(), String> {
+	if let Some(parent_dir) = asar_path.as_ref().parent() {
+		let unpacked_folder = parent_dir.join("app.asar.unpacked");
+		if !unpacked_folder.exists() {
+			return Ok(())
+		}
+		let unpacked_files = get_unpacked_files(&asar_path);
+		for rel_path in unpacked_files.iter() {
+			let path = unpacked_folder.join(rel_path);
+			let bytes = fs::read(&path).map_err(|e| format!("Failed to read file ({})", e.to_string()))?;
+			asar_writer.write_file(&rel_path, bytes, false).map_err(|e| format!("Failed to write file ({})", e.to_string()))?;
+		}
+	}
+
+	return Ok(());
+}
+
+fn apply_patches(patched_asar: & mut AsarWriter, asar: &AsarReader) -> Result<(), String> {
+	let patches = init_patches();
+	for (path_string, patch_list) in patches.iter() {
+		let path = Path::new(path_string);
+		if let Some(file) = asar.files().get(path) {
+			let mut bytes = file.data().to_vec();
+			for patch in patch_list {
+				if bytes.windows(patch.replacement.len()).any(|w| w == patch.replacement) {
+					return Err("The asar has already been patched".into());
+				}
+				let patched_bytes = replace_bytes(&bytes, &patch.original, &patch.replacement);
+				if patched_bytes != bytes {
+					bytes = patched_bytes;
+				} else {
+					return Err("Failed to apply patches (This may mean it has already been patched)".into());
+				}
+			};
+			patched_asar.write_file(path, bytes, false).map_err(|e| format!("Failed to write the patched file: {} ({})", path_string, e.to_string()))?;
+		}
+	}
+	return Ok(())
+}
+
+fn patch_asar_file<P: AsRef<Path>>(asar_path: P) -> Result<(), String> {
+	log("Starting patch", LogLevel::Info);
+	log("Reading asar file", LogLevel::Info);
+	let asar_file = fs::read(asar_path.as_ref()).map_err(|e| format!("Failed to read ASAR file ({})", e))?;
+	let asar = AsarReader::new(&asar_file, None).map_err(|e| format!("Failed to parse ASAR file ({})", e))?;
+
+	let mut patched_asar = AsarWriter::new();
+	log("Recreating files. Please wait...", LogLevel::Info);
+
+	// Add unpacked and patches to the writer.
+	recreate_unpacked_files(&mut patched_asar, asar_path.as_ref()).map_err(|e| format!("Failed to recreate unpacked files ({})", e))?;
+	apply_patches(&mut patched_asar, &asar)?;
+
+	for (path, file) in asar.files() {
+		let path_string = path.to_string_lossy();
+		let success = patched_asar.write_file(path, file.data(), false);
+		if success.is_err() { // This will error if the file has already been written (patched/unpacked files). This is fine. (it might be quicker to check if we have already written the file but idk)
+			log(&format!("Failed to write file: {} (probably patched or unpacked)", path_string.as_ref()), LogLevel::Warning);
+		}
+	}
+
+	log("Files recreated!", LogLevel::Success);
+
+	let mut backup_path = asar_path.as_ref().to_path_buf();
+	backup_path.set_file_name("app.asar.backup");
+	log(&format!("Backing up app.asar to {}", backup_path.display()), LogLevel::Info);
+
+	fs::rename(asar_path.as_ref(), backup_path).map_err(|e| format!("Failed to backup app.asar ({})", e.to_string()))?;
+
+	log("Writing patched ASAR", LogLevel::Info);
+
+	let patched_writer = fs::File::create(asar_path.as_ref()).map_err(|e| format!("Failed to create patched ASAR file ({})", e.to_string()))?;
+	patched_asar.finalize(patched_writer).map_err(|e| format!("Failed to finalize patched ASAR ({})", e.to_string()))?;
+
+	log("ASAR patched successfully", LogLevel::Success);
+
+	return Ok(())
+}
+
+fn patch_binary_file<P: AsRef<Path>>(base_path: P) -> Result<(), String> {
+	log("Patching binary file", LogLevel::Info);
+	let patch_paths = get_os_paths().unwrap();
+
+	if cfg!(unix) { // Electron doesnt support integrity checking on linux
+		log("Binary patching not required on this platform", LogLevel::Info);
+		return Ok(())
+	}
+
+	let asar_path = base_path.as_ref().join(patch_paths.asar_path);
+	let binary_path = base_path.as_ref().join(patch_paths.binary_path);
+	let asar_backup_path = asar_path.with_extension("asar.backup");
+
+	let original_hash = get_asar_integrity_hash(asar_backup_path.as_ref())?;
+	let replacement_hash = get_asar_integrity_hash(asar_path.as_ref())?;
+	log("ASAR integrity hashes calculated successfully", LogLevel::Success);
+
+	let binary_data = fs::read(&binary_path).map_err(|e| format!("Failed to open binary file ({})", e.to_string()))?;
+
+	let patched_data = replace_bytes(
+		&binary_data,
+		original_hash.as_bytes(),
+		replacement_hash.as_bytes()
+	);
+
+	let binary_backup_path = binary_path.with_extension("binary.backup");
+	log("Creating backup file", LogLevel::Info);
+	fs::rename(&binary_path, &binary_backup_path).map_err(|e| format!("Failed to create backup file ({})", e.to_string()))?;
+	log("Backup file created successfully", LogLevel::Success);
+
+	fs::write(binary_path, patched_data).map_err(|e| format!("Failed to write patched binary file ({})", e.to_string()))?;
+
+	log("Binary patched successfully", LogLevel::Success);
+
+	return Ok(())
+}
+
+
+fn is_valid_base_path<P: AsRef<Path>>(base_path: P) -> bool {
+	let os_paths = get_os_paths();
+	if let Some(os_paths) = os_paths {
+
+		let asar_path = base_path.as_ref().join(os_paths.asar_path);
+		let binary_path = base_path.as_ref().join(os_paths.binary_path);
+		if asar_path.exists() && binary_path.exists() {
+			return true;
+		}
+	}
+	return false;
+}
+
+fn detect_base_path() -> Option<PathBuf> {
+	let os_paths = get_os_paths();
+	if let Some(os_paths) = os_paths {
+		for path in os_paths.base_paths.iter() {
+			if is_valid_base_path(path) {
+				return Some(PathBuf::from(path));
+			}
 		}
 	}
 	return None;
 }
 
-fn alert(message: &str, title: &str) {
-	let _ = DialogBuilder::message()
-		.set_level(MessageLevel::Error)
-		.set_title(title)
-		.set_text(message)
-		.alert()
-		.show();
+mod logger;
+use logger::{log, LogLevel};
+
+#[cfg(windows)]
+#[link(name = "shell32")]
+unsafe extern "system" {
+	fn IsUserAnAdmin() -> bool;
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
-	let ui = AppWindow::new()?;
-	let ui_weak = ui.as_weak();
-	let path = detect_asar_path();
-	if let Some(value) = path {
-		ui.set_asar_path(value.into());
+#[cfg(windows)]
+pub fn is_admin() -> bool {
+	unsafe { IsUserAnAdmin() }
+}
+
+#[cfg(unix)]
+pub fn is_admin() -> bool {
+	use libc::{geteuid, getuid};
+	unsafe { getuid() == 0 || geteuid() == 0 }
+}
+
+fn main() {
+	let is_admin = is_admin();
+	if !is_admin {
+		log("You must run this program as an administrator.", LogLevel::Error);
+		return;
 	}
-	ui.set_patcher_version(PATCHER_VERSION.into());
 
-	let ui_weak_select = ui_weak.clone();
-	ui.on_select_asar_path(move || {
-		let Some(ui) = ui_weak_select.upgrade() else {
-			return;
-		};
+	let args: Vec<String> = env::args().collect();
 
-		let file = rfd::FileDialog::new()
-			.add_filter("Asar Files", &["asar"])
-			.set_directory("/")
-			.pick_file();
+	let base_path_opt = args.get(1)
+		.map(PathBuf::from)
+		.or(detect_base_path());
 
-		if let Some(path) = file {
-			ui.set_asar_path(path.to_string_lossy().to_string().into());
-			ui.set_can_patch(true);
-		}
-	});
-
-	let ui_weak_patch = ui_weak.clone();
-	ui.on_patch_asar_file(move || {
-		let Some(ui) = ui_weak_patch.upgrade() else {
-			return;
-		};
-		ui.set_can_patch(false);
-		let path = detect_asar_path().unwrap_or(ui.get_asar_path().into());
-		if path == "Could not detect Asar file" {
-			alert("No asar file is set!", "Failed to patch");
+	let base_path = match base_path_opt {
+		Some(path) => path,
+		None => {
+			log("Could not detect base path. Please run the command again with the base path as an argument.", LogLevel::Error);
 			return;
 		}
+	};
 
-		let ui_weak_patch_thread = ui_weak_patch.clone();
-		std::thread::spawn({
-			let ui_weak = ui_weak_patch_thread.clone();
-			let path = path.clone();
-			move || {
-				let update_ui = |message: String| {
-					let ui_weak = ui_weak.clone();
-					let message_copy = message.clone();
-					slint::invoke_from_event_loop(move || {
-						if let Some(ui) = ui_weak.upgrade() {
-							ui.set_can_patch(true);
-							append_log(&ui_weak, &message_copy);
-						}
-					}).unwrap();
-				};
+	if !is_valid_base_path(&base_path) {
+		log(&format!("The path {} is not a valid installation path.", base_path.display()), LogLevel::Error);
+		return;
+	}
 
-				match patch_asar_file(&path, &ui_weak) {
-					Ok(_) => update_ui("SUCCESS: PATCH COMPLETED!".to_string()),
-					Err(err) => update_ui(format!("FAILURE: UNABLE TO PATCH! {}", err)),
-				}
-			}
-		});
+	log(&format!("Using path: {}", base_path.display()), LogLevel::Success);
+	let asar_path = base_path.join(get_os_paths().unwrap().asar_path);
 
-	});
+	let result = patch_asar_file(asar_path);
+	if result.is_err() {
+		log(&format!("Failed to patch asar file. {}", result.err().unwrap()), LogLevel::Error);
+		return;
+	}
 
-	ui.run()?;
-	Ok(())
+	let result = patch_binary_file(base_path);
+	if result.is_err() {
+		log(&format!("Failed to patch binary file. {}", result.err().unwrap()), LogLevel::Error);
+		return;
+	}
+
 }
