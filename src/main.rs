@@ -217,7 +217,7 @@ fn backup_asar(elevated: & mut ElevatedShell) -> Result<(), String> {
 			}
 
 			#[cfg(unix)] {
-				return run_admin_command("sh", &["-c", &format!("pkill \"{0}\"; sleep 3; pkill -9 \"{0}\"", patch_paths.binary_path)]);
+				return elevated.run_command(&format!("mv \"{}\" \"{}.backup\"", asar_path.to_string_lossy(), asar_path.to_string_lossy()));
 			}
 		}
 
