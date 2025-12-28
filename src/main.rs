@@ -134,57 +134,6 @@ fn get_os_patch_paths() -> Option<PatchPaths> {
 	return Some(paths.clone());
 }
 
-fn kill_httptoolkit(elevated: & mut ElevatedShell) -> Result<(), String> {
-	let option = get_os_patch_paths();
-	let Some(patch_paths) = option else {
-		return Err("Failed to get OS patch paths".to_string());
-	};
-
-	let option = get_base_path();
-	let Some(base_path) = option else {
-		return Err("Failed to get base path".to_string());
-	};
-
-		let asar_path = base_path.join(patch_paths.asar_path);
-		let binary_path = base_path.join(patch_paths.binary_path);
-		if binary_path.exists() && asar_path.exists() {
-			#[cfg(windows)] {
-				return elevated.run_command(&format!("taskkill /im \"{0}\"; Start-Sleep -s 3; taskkill /f /im \"{0}\"", patch_paths.binary_path));
-			}
-
-			#[cfg(unix)] {
-				return elevated.run_command(&format!("taskkill /im \"{0}\"; Start-Sleep -s 3; taskkill /f /im \"{0}\"", patch_paths.binary_path));
-			}
-		}
-
-	return Err("Unknown".to_string());
-}
-
-fn backup_asar(elevated: & mut ElevatedShell) -> Result<(), String> {
-	let option = get_os_patch_paths();
-	let Some(patch_paths) = option else {
-		return Err("Failed to get OS patch paths".to_string());
-	};
-
-	let option = get_base_path();
-	let Some(base_path) = option else {
-		return Err("Failed to get base path".to_string());
-	};
-
-		let asar_path = base_path.join(patch_paths.asar_path);
-		let binary_path = base_path.join(patch_paths.binary_path);
-		if binary_path.exists() && asar_path.exists() {
-			#[cfg(windows)] {
-				return elevated.run_command(&format!("ren \"{}\" \"{}\"", asar_path.to_string_lossy(), "app.asar.backup"));
-			}
-
-			#[cfg(unix)] {
-				return elevated.run_command(&format!("mv \"{}\" \"{}.backup\"", asar_path.to_string_lossy(), asar_path.to_string_lossy()));
-			}
-		}
-
-	return Err("Unknown".to_string());
-}
 
 fn get_asar_integrity_hash(path: &Path) -> Result<String, String> {
 	let bytes = fs::read(path).map_err(|e| format!("Failed to read ASAR file ({})", e.to_string()))?;
@@ -282,7 +231,6 @@ fn patch_asar_file<P: AsRef<Path>>(asar_path: P, ui: &slint::Weak<AppWindow>) ->
 		}
 	}
 	append_log(ui, "Files recreated!");
-
 
 	let mut backup_path = asar_path.as_ref().to_path_buf();
 	backup_path.set_file_name("app.asar.backup");
