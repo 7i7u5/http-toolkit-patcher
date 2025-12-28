@@ -12,6 +12,7 @@ use walkdir::WalkDir;
 use sha2::{Sha256, Digest};
 use std::thread;
 use std::io::Write;
+#[cfg(windows)]
 use std::os::windows::process::CommandExt;
 use std::process::{Command, Child, Stdio, ChildStdin};
 
