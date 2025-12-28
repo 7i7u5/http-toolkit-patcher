@@ -1,67 +1,69 @@
-# HTTP Toolkit Patch
+# HTTP Toolkit Patcher
 
-A tool designed to patch **HTTP Toolkit** to unlock Pro features.
+A specialized tool for patching **HTTP Toolkit** to unlock Pro features through `app.asar` modification.
 
-> [!WARNING]
-> **FOR EDUCATIONAL PURPOSES ONLY.**
-> This project was created to explore patching, and reverse engineering concepts. It is not intended for piracy or commercial use. If you find HTTP Toolkit useful, please support the original developers by purchasing a legitimate Pro license.
+> [!WARNING]  
+> **FOR EDUCATIONAL PURPOSES ONLY.** > This project explores patching and reverse engineering concepts. It is not intended for piracy. If you find HTTP Toolkit useful, please support the developers by purchasing a legitimate Pro license.
 
 ---
 
-## Installation
+## Features
 
-Download the latest release from the [releases](../../releases) tab.
+- **Automatic Detection:** Automatically locates your HTTP Toolkit installation.
+- **Safety First:** Creates an automatic backup of your original `app.asar` and binary.
+- **Rust-Powered:** Fast, memory-safe execution.
 
-> [!IMPORTANT]
-> I havent included mac os linux binaries in the releases as I have no easy way to build and/or test them. However it should be pretty straightforward to build yourself from source. If any issues occur, feel free to create an issue and I will try to help.
+## Installation & Usage
 
-## Usage
+Currently, **Windows** is the only supported platform.
 
-1. **Run the app:** Download and run the release file for your operating system (.dmg for macOS, .exe for Windows, or the binary for Linux).
-2. **Locate app.asar:** The tool should automatically detect the **HTTP Toolkit** `app.asar` file. If it doesn't, click **Select Path** and navigate to the correct location manually:
-   - **Windows (User):** `%LocalAppData%\Programs\httptoolkit\resources\app.asar`
-   - **Windows (System):** `C:\Program Files\HTTP Toolkit\resources\app.asar`
-   - **macOS:** `/Applications/HTTP Toolkit.app/Contents/Resources/app.asar`
-   - **Linux (Debian/Ubuntu):** `/opt/HTTP Toolkit/resources/app.asar`
-   - **Linux (Snap):** `/snap/httptoolkit/current/resources/app.asar`
+1.  **Download:** Grab the latest executable from the [Releases](../../releases) tab.
+2.  **Terminal:** Open an Administrator Command Prompt or PowerShell.
+3.  **Navigate:** Use `cd` to enter the directory where you downloaded the tool.
+4.  **Run:** Execute the patcher:
+    ```powershell
+    .\http-toolkit-patcher.exe
+    ```
+5.  **Manual Path (Optional):** If the tool doesn't find your install, pass the path manually:
+    - **User Install:** `%LocalAppData%\Programs\httptoolkit\resources\app.asar`
+    - **System Install:** `C:\Program Files\HTTP Toolkit\resources\app.asar`
 
-3. **Patch:** Click the **Patch** button. You may be prompted for admin permissions; the tool needs these to close any active HTTP Toolkit processes and modify the file.
-4. **Wait:** The process will only take a few seconds.
+### Status Indicators
 
-### Verification
+- ✅ **SUCCESS:** Patch completed! You are ready to go.
+- ❌ **FAILURE:** Patch failed. Check the log for the specific error reason.
 
-Check the log box for the result:
+---
 
-- ✅ **SUCCESS: PATCH COMPLETED!** – You are good to go.
-- ❌ **FAILURE: UNABLE TO PATCH! [Reason]** – The patch failed. Review the reason provided in the log.
+## How It Works
+
+The patcher modifies the `app.asar` archive to enable the **Chrome DevTools Protocol**. This allows for the interception and alteration of `main.js` at runtime, injecting a modified user object that grants premium plan access.
+
+_Note: Since this modifies core files, you may need to re-run the patcher after an HTTP Toolkit update._
 
 ---
 
 ## Recovery & Troubleshooting
 
-If HTTP Toolkit fails to launch or behaves unexpectedly after patching, a backup is automatically created for your safety.
+If the application fails to launch or behaves unexpectedly, restore your backup:
 
-**To restore the original state:**
+1.  Navigate to the `resources` folder in your install directory.
+2.  Delete the modified `app.asar`.
+3.  Rename `app.asar.backup` to `app.asar`.
+4.  Restart HTTP Toolkit.
 
-1. Navigate to the folder containing your `app.asar` (see paths above).
-2. Delete the modified `app.asar`.
-3. Rename `app.asar.backup` back to `app.asar`.
-4. Restart HTTP Toolkit.
+---
 
-## Building from Source
+## 🏗️ Building from Source
 
-Ensure you have the latest **Rust Cargo** compiler installed.
+Requires the **Rust/Cargo** toolchain.
 
 ```bash
-git clone https://github.com/7i7u5/http-toolkit-patch
+git clone [https://github.com/7i7u5/http-toolkit-patch](https://github.com/7i7u5/http-toolkit-patch)
 cd http-toolkit-patch
 cargo build --release
 ```
 
-## How it works
-
-The patch modifies the app.asar file to enable the Chrome DevTools Protocol, which intercepts and alters the main.js script before it loads. This allows us to patch the user object and grant ourselves a premium plan. Because of the nature of this patch, it may need to be reapplied after updates.
-
 ## Disclaimer
 
-The author and contributors are not responsible for any misuse of this tool, data loss, or account bans. By using this software, you agree that you are doing so at your own risk.
+The author and contributors are not responsible for misuse, data loss, or account bans. Use this software at your own risk.

@@ -35,16 +35,16 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 			asar_path: "resources/app.asar"
 		});
 
-		m.insert("unix".to_string(), PatchPaths { //TODO: test unix paths
-			base_paths: vec![
-				"/opt/HTTP Toolkit".to_string(),
-			],
-			binary_path: "httptoolkit", // This is null as integrity check is not supported on linux so we dont need to patch the binary
-			asar_path: "resources/app.asar"
-		});
+		// m.insert("unix".to_string(), PatchPaths {
+		// 	base_paths: vec![
+		// 		"/opt/HTTP Toolkit".to_string(),
+		// 	],
+		// 	binary_path: "httptoolkit",
+		// 	asar_path: "resources/app.asar"
+		// });
 
 		// m.insert("macos".to_string(), vec![
-		// 	//TODO: Test macos paths.
+		//TODO: patch for non windows
 		// ]);
 
 		return m;
@@ -54,7 +54,7 @@ fn init_patch_paths() -> &'static HashMap<String, PatchPaths> {
 fn init_patches() -> &'static HashMap<String, Vec<Patch>> {
 	PATCHES.get_or_init(|| {
 		let mut m = HashMap::new();
-		m.insert("build\\index.js".to_string(), vec![
+		m.insert("build/index.js".to_string(), vec![
 			Patch {
 				original: vec![
 					0x20, 0x20, 0x20, 0x20, 0x7d, 0x29, 0x3b, 0x0a, 0x20, 0x20, 0x20, 0x20, 0x69, 0x66, 0x20, 0x28, 0x73, 0x68, 0x6f, 0x75, 0x6c, 0x64, 0x41, 0x75, 0x74, 0x6f, 0x48, 0x69, 0x64, 0x65, 0x4d, 0x65, 0x6e, 0x75, 0x28, 0x29, 0x29, 0x20, 0x7b				],
@@ -245,7 +245,7 @@ fn patch_binary_file<P: AsRef<Path>>(base_path: P) -> Result<(), String> {
 	let original_hash = get_asar_integrity_hash(asar_backup_path.as_ref())?;
 	let replacement_hash = get_asar_integrity_hash(asar_path.as_ref())?;
 	log("ASAR integrity hashes calculated successfully", LogLevel::Success);
-log(&format!("Original hash string length: {}", original_hash.len()), LogLevel::Info);
+
 	let binary_data = fs::read(&binary_path).map_err(|e| format!("Failed to open binary file ({})", e.to_string()))?;
 
 	let patched_data = replace_bytes(
@@ -342,13 +342,13 @@ fn main() {
 	let asar_path = base_path.join(get_os_paths().unwrap().asar_path);
 
 	let result = patch_asar_file(asar_path);
-	if (result.is_err()) {
+	if result.is_err() {
 		log(&format!("Failed to patch asar file. {}", result.err().unwrap()), LogLevel::Error);
 		return;
 	}
 
 	let result = patch_binary_file(base_path);
-	if (result.is_err()) {
+	if result.is_err() {
 		log(&format!("Failed to patch binary file. {}", result.err().unwrap()), LogLevel::Error);
 		return;
 	}
