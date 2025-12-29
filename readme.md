@@ -29,8 +29,8 @@ Currently, **Windows** is the only supported platform.
     .\http-toolkit-patcher.exe
     ```
 5.  **Manual Path (Optional):** If the tool doesn't find your install, pass the path manually:
-    - **User Install:** `%LocalAppData%\Programs\httptoolkit\resources\app.asar`
-    - **System Install:** `C:\Program Files\HTTP Toolkit\resources\app.asar`
+    - **User Install:** `%LocalAppData%\Programs\httptoolkit\`
+    - **System Install:** `C:\Program Files\HTTP Toolkit\`
 
 ### Status Indicators
 
