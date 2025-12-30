@@ -58,7 +58,7 @@ If the application fails to launch or behaves unexpectedly, restore your backup:
 
 ---
 
-## 🏗️ Building from Source
+## Building from Source
 
 Requires the **Rust/Cargo** toolchain.
 
